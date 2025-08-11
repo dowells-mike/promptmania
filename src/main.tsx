@@ -4,7 +4,7 @@ import { loadState } from './state';
 import { PromptEditor } from './components/PromptEditor';
 import { ErrorBoundary } from './components/ErrorBoundary';
 
-const App: React.FC = () => {
+export const App: React.FC = () => {
   const [state, setState] = React.useState(loadState());
   return <PromptEditor state={state} setState={setState} />;
 };

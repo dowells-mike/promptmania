@@ -1,9 +1,14 @@
 import { describe, it, expect } from 'vitest';
 import { migrateProject, SCHEMA_VERSION } from '../state';
+import { TextBox, ImageBox } from '../types';
+
+// Minimal legacy v1 shapes without newer fields
+interface LegacyBox { id: string; type: 'text' | 'image'; category: string }
+interface LegacyProject { id: string; name: string; created: number; modified: number; version: number; tags: string[]; boxes: LegacyBox[] }
 
 describe('migrateProject', () => {
   it('fills defaults for legacy v1 text and image boxes', () => {
-    const legacy: any = {
+    const legacy: LegacyProject = {
       id: 'p1',
       name: 'Legacy',
       created: Date.now(),
@@ -17,11 +22,11 @@ describe('migrateProject', () => {
     };
     const migrated = migrateProject(legacy);
     expect(migrated.version).toBe(SCHEMA_VERSION);
-    const t = migrated.boxes.find(b => b.type==='text');
-    const i = migrated.boxes.find(b => b.type==='image');
-    expect(t && typeof (t as any).weight).toBe('number');
-    expect(t && typeof (t as any).content).toBe('string');
-    expect(Array.isArray((t as any).tags)).toBe(true);
-    expect(Array.isArray((i as any).tags)).toBe(true);
+    const t = migrated.boxes.find(b => b.type==='text') as TextBox | undefined;
+    const i = migrated.boxes.find(b => b.type==='image') as ImageBox | undefined;
+    expect(typeof t?.weight).toBe('number');
+    expect(typeof t?.content).toBe('string');
+    expect(Array.isArray(t?.tags)).toBe(true);
+    expect(Array.isArray(i?.tags)).toBe(true);
   });
 });
