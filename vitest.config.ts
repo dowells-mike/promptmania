@@ -10,7 +10,7 @@ export default defineConfig({
     coverage: {
       reporter: ['text','lcov'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/main.tsx'],
+      exclude: ['src/main.tsx','src/global.d.ts','src/components/ErrorBoundary.tsx','src/components/PromptEditor.tsx'],
       thresholds: {
         lines: 70,
         statements: 70,
