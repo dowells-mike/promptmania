@@ -1,30 +1,9 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { render, fireEvent, screen } from '@testing-library/react';
 import { PromptEditor } from '../components/PromptEditor';
 import { createEmptyProject } from '../state';
 import type { AppState } from '../state';
-
-// Polyfills for jsdom environment
-beforeAll(() => {
-  // crypto.randomUUID
-  if (!(global as any).crypto) (global as any).crypto = {} as any;
-  if (!(global as any).crypto.randomUUID) (global as any).crypto.randomUUID = () => 'uuid-' + Math.random().toString(16).slice(2);
-  // localStorage minimal
-  if (!(global as any).localStorage) {
-    const store: Record<string, string> = {};
-    (global as any).localStorage = {
-      getItem: (k: string) => (k in store ? store[k] : null),
-      setItem: (k: string, v: string) => { store[k] = String(v); },
-      removeItem: (k: string) => { delete store[k]; },
-      clear: () => { Object.keys(store).forEach(k => delete store[k]); },
-    };
-  }
-  // clipboard
-  if (!(navigator as any).clipboard) {
-    (navigator as any).clipboard = { writeText: vi.fn().mockResolvedValue(undefined) };
-  }
-});
 
 function makeState(): AppState {
   const project = createEmptyProject('Test');

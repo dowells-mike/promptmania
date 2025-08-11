@@ -19,11 +19,13 @@ describe('migration', () => {
   it('adds missing fields and bumps version', () => {
     const migrated = migrateProject(legacy);
     expect(migrated.version).toBe(SCHEMA_VERSION);
-    const t = migrated.boxes.find(b => b.id==='b1') as any;
+    const t = migrated.boxes.find(b => b.id==='b1');
+    if (!t || t.type !== 'text') throw new Error('missing text box');
     expect(Array.isArray(t.tags)).toBe(true);
     expect(typeof t.weight).toBe('number');
     expect(typeof t.content).toBe('string');
-    const img = migrated.boxes.find(b => b.id==='b2') as any;
+    const img = migrated.boxes.find(b => b.id==='b2');
+    if (!img || img.type !== 'image') throw new Error('missing image box');
     expect(Array.isArray(img.tags)).toBe(true);
     expect(typeof img.content).toBe('string');
   });

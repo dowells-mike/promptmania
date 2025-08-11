@@ -44,4 +44,4 @@ export interface Project {
 export type PlatformPreset = 'midjourney' | 'stable-diffusion' | 'dalle' | 'plain';
 
 export const BOX_CATEGORIES: BoxCategory[] = ['default','subject','style','background','composition','angle','reference'];
-export function isBoxCategory(v: any): v is BoxCategory { return BOX_CATEGORIES.includes(v); }
+export function isBoxCategory(v: unknown): v is BoxCategory { return BOX_CATEGORIES.includes(v as BoxCategory); }

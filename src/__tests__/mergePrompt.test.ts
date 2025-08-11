@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
 import { mergePrompt, createEmptyProject, newTextBox } from '../state';
-import { Project } from '../types';
+import { Project, PlatformPreset } from '../types';
 
-function buildProject(weights: Array<[string, number]>, preset: any): string {
+function buildProject(weights: Array<[string, number]>, preset: PlatformPreset): string {
   const project: Project = createEmptyProject('Test');
   // remove initial default boxes and replace
   project.boxes = weights.map(([content, weight], idx) => ({

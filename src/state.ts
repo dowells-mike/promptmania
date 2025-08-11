@@ -24,9 +24,9 @@ const PREFS_KEY = 'promptmania.userprefs.v1';
 export const SCHEMA_VERSION = 2;
 
 // Migrate a single project object to the latest schema version
-export function migrateProject(raw: any): Project {
-  if (!raw) throw new Error('Invalid project');
-  let p = { ...raw };
+export function migrateProject(raw: unknown): Project {
+  if (!raw || typeof raw !== 'object') throw new Error('Invalid project');
+  let p: any = { ...(raw as Record<string, unknown>) };
   const fromVersion: number = typeof p.version === 'number' ? p.version : 1;
   // Progressive migrations (fallthrough style)
   switch (fromVersion) {
@@ -34,7 +34,7 @@ export function migrateProject(raw: any): Project {
       // Example migration from v1 -> v2
       // Ensure every box has tags array & weight for text boxes.
       p.boxes = (p.boxes || []).map((b: any) => {
-        const base = { ...b };
+        const base: any = { ...b };
         if (!Array.isArray(base.tags)) base.tags = [];
         if (base.type === 'text') {
           if (typeof base.weight !== 'number') base.weight = 0;
@@ -56,7 +56,7 @@ export function migrateProject(raw: any): Project {
 }
 
 // Migrate an array of projects
-function migrateProjects(list: any[]): Project[] { return (list||[]).map(migrateProject); }
+function migrateProjects(list: unknown[]): Project[] { return (list||[]).map(migrateProject); }
 
 export function createEmptyProject(name = 'Untitled Project'): Project {
   const now = Date.now();

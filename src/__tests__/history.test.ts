@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pushHistory, restoreSnapshot, createEmptyProject, compressProjects, decompressProjects } from '../state';
+import { pushHistory, restoreSnapshot, createEmptyProject, compressProjects, decompressProjects, AppState } from '../state';
 import { Project } from '../types';
 
 function clone<T>(v: T): T { return JSON.parse(JSON.stringify(v)); }
@@ -11,7 +11,7 @@ describe('history compression', () => {
     for (let i=0;i<20;i++) {
       p.boxes.push({ ...p.boxes[0], id: 'x'+i, content: 'lorem ipsum '.repeat(10), position: Date.now()+i });
     }
-    const state: any = { projects: [p], activeProjectId: p.id, history: { past: [], future: [] } };
+    const state = { projects: [p], activeProjectId: p.id, history: { past: [], future: [] } } as unknown as AppState;
     pushHistory(state);
     expect(state.history.past.length).toBe(1);
     const entry = state.history.past[0];
