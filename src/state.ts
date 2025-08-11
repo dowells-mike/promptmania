@@ -21,6 +21,43 @@ export interface UserPrefs {
 const STORAGE_KEY = 'promptmania.projects.v1';
 const PREFS_KEY = 'promptmania.userprefs.v1';
 
+export const SCHEMA_VERSION = 2;
+
+// Migrate a single project object to the latest schema version
+export function migrateProject(raw: any): Project {
+  if (!raw) throw new Error('Invalid project');
+  let p = { ...raw };
+  const fromVersion: number = typeof p.version === 'number' ? p.version : 1;
+  // Progressive migrations (fallthrough style)
+  switch (fromVersion) {
+    case 1: {
+      // Example migration from v1 -> v2
+      // Ensure every box has tags array & weight for text boxes.
+      p.boxes = (p.boxes || []).map((b: any) => {
+        const base = { ...b };
+        if (!Array.isArray(base.tags)) base.tags = [];
+        if (base.type === 'text') {
+          if (typeof base.weight !== 'number') base.weight = 0;
+          if (typeof base.content !== 'string') base.content = '';
+        }
+        if (base.type === 'image') {
+          if (typeof base.content !== 'string') base.content = '';
+        }
+        return base;
+      });
+      // Add future migrations here before setting version
+      break;
+    }
+    default:
+      break;
+  }
+  p.version = SCHEMA_VERSION as 1; // keep type compatibility with current Project interface
+  return p as Project;
+}
+
+// Migrate an array of projects
+function migrateProjects(list: any[]): Project[] { return (list||[]).map(migrateProject); }
+
 export function createEmptyProject(name = 'Untitled Project'): Project {
   const now = Date.now();
   return {
@@ -29,7 +66,7 @@ export function createEmptyProject(name = 'Untitled Project'): Project {
     created: now,
     modified: now,
     tags: [],
-    version: 1,
+    version: SCHEMA_VERSION as 1,
     boxes: [
       newTextBox('subject'),
       newTextBox('style'),
@@ -76,9 +113,10 @@ export function loadState(): AppState {
     const prefs: UserPrefs = prefRaw ? JSON.parse(prefRaw) : { pinnedTags: [] };
     if (raw) {
       const parsed = JSON.parse(raw) as Project[];
+      const migrated = migrateProjects(parsed);
       return {
-        projects: parsed,
-        activeProjectId: parsed[0]?.id ?? null,
+        projects: migrated,
+        activeProjectId: migrated[0]?.id ?? null,
         history: { past: [], future: [] },
         toasts: [],
         search: '',
