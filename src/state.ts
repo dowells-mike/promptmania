@@ -26,33 +26,34 @@ export const SCHEMA_VERSION = 2;
 // Migrate a single project object to the latest schema version
 export function migrateProject(raw: unknown): Project {
   if (!raw || typeof raw !== 'object') throw new Error('Invalid project');
-  let p: any = { ...(raw as Record<string, unknown>) };
+  // Use a loosely typed intermediate but avoid any for elements
+  const p = { ...(raw as Record<string, unknown>) } as Record<string, unknown> & { boxes?: unknown; version?: unknown };
   const fromVersion: number = typeof p.version === 'number' ? p.version : 1;
-  // Progressive migrations (fallthrough style)
   switch (fromVersion) {
     case 1: {
-      // Example migration from v1 -> v2
-      // Ensure every box has tags array & weight for text boxes.
-      p.boxes = (p.boxes || []).map((b: any) => {
-        const base: any = { ...b };
-        if (!Array.isArray(base.tags)) base.tags = [];
-        if (base.type === 'text') {
-          if (typeof base.weight !== 'number') base.weight = 0;
-          if (typeof base.content !== 'string') base.content = '';
+      const boxes = Array.isArray(p.boxes) ? p.boxes : [];
+      const migrated = boxes.map(b => {
+        const base = { ...(b as Record<string, unknown>) } as Record<string, unknown>;
+        if (!Array.isArray((base as { tags?: unknown }).tags)) (base as { tags: unknown }).tags = [];
+        if ((base as { type?: unknown }).type === 'text') {
+          const tb = base as Record<string, unknown>;
+            if (typeof tb.weight !== 'number') tb.weight = 0;
+            if (typeof tb.content !== 'string') tb.content = '';
         }
-        if (base.type === 'image') {
-          if (typeof base.content !== 'string') base.content = '';
+        if ((base as { type?: unknown }).type === 'image') {
+          const ib = base as Record<string, unknown>;
+          if (typeof ib.content !== 'string') ib.content = '';
         }
         return base;
       });
-      // Add future migrations here before setting version
+      p.boxes = migrated;
       break;
     }
     default:
       break;
   }
-  p.version = SCHEMA_VERSION as 1; // keep type compatibility with current Project interface
-  return p as Project;
+  (p as { version: number }).version = SCHEMA_VERSION as 1;
+  return p as unknown as Project;
 }
 
 // Migrate an array of projects

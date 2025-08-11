@@ -1,8 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { pushHistory, restoreSnapshot, createEmptyProject, compressProjects, decompressProjects, AppState } from '../state';
-import { Project } from '../types';
-
-function clone<T>(v: T): T { return JSON.parse(JSON.stringify(v)); }
+import { pushHistory, createEmptyProject, compressProjects, decompressProjects, AppState } from '../state';
 
 describe('history compression', () => {
   it('pushHistory stores compressed data smaller or equal to raw JSON length', () => {

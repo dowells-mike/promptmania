@@ -165,7 +165,6 @@ export const PromptEditor: React.FC<{ state: AppState; setState: React.Dispatch<
   useEffect(() => { persistProjects(state.projects); }, [state.projects]);
   useEffect(() => { persistUserPrefs(state.userPrefs); }, [state.userPrefs]);
   const updateProject = (mut: (p: Project) => void) => { setState(s => { pushHistory(s); const projects = s.projects.map(p => p.id === project.id ? { ...p, boxes: p.boxes.map(b => ({ ...b })) } : p); const target = projects.find(p => p.id === project.id)!; mut(target); const texts = target.boxes.filter(isTextBox); const images = target.boxes.filter(isImageBox); target.boxes = [...texts, ...images]; target.modified = Date.now(); return { ...s, projects }; }); };
-  const setBox = (id: string, mut: (b: AnyBox) => void) => updateProject(p => { const b = p.boxes.find(bx => bx.id === id); if (b) { mut(b); b.modified = Date.now(); } });
   const setTextBox = (id: string, mut: (b: TextBox) => void) => updateProject(p => { const b = p.boxes.find(bx => bx.id === id); if (b && b.type==='text') { mut(b); b.modified = Date.now(); } });
   const setImageBox = (id: string, mut: (b: ImageBox) => void) => updateProject(p => { const b = p.boxes.find(bx => bx.id === id); if (b && b.type==='image') { mut(b); b.modified = Date.now(); } });
   const addText = (category: string) => { if (!isBoxCategory(category)) return; let newId: string | null = null; updateProject(p => { const b = newTextBox(category); newId = b.id; p.boxes.push(b); }); if (newId) setState(s => ({ ...s, lastFocusedBoxId: newId })); toast(`${category} box added`); };
