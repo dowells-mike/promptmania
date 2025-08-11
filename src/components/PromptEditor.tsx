@@ -6,6 +6,8 @@ import { SortableContext, arrayMove, useSortable, rectSortingStrategy } from '@d
 import { CSS } from '@dnd-kit/utilities';
 import JSZip from 'jszip';
 
+const DND_DESC_ID = 'dnd-instructions';
+
 // Utility: deterministic tag color
 function tagColor(tag: string): string { let hash = 0; for (let i=0;i<tag.length;i++) hash = (hash*31 + tag.charCodeAt(i))>>>0; const hues = [210,35,140,85,260,300,20,110]; return `hsl(${hues[hash % hues.length]}deg 70% 60%)`; }
 
@@ -94,15 +96,15 @@ const ToastHost: React.FC<{ toasts: AppState['toasts']; setState: React.Dispatch
   return <div className="toast-container" role="region" aria-live="polite" aria-label="Notifications">{toasts.map(t => <div key={t.id} className="toast" role="status">{t.message}</div>)}</div>;
 };
 
-interface SortableBoxProps { box: TextBox; onChange: (mut: (b: TextBox) => void) => void; onDelete: () => void; onDuplicate: () => void; toast: (msg: string) => void; setState: React.Dispatch<React.SetStateAction<AppState>>; invalid?: boolean; }
-const SortableBox: React.FC<SortableBoxProps> = ({ box, onChange, onDelete, onDuplicate, toast, setState, invalid }) => {
+interface SortableBoxProps { box: TextBox; onChange: (mut: (b: TextBox) => void) => void; onDelete: () => void; onDuplicate: () => void; toast: (msg: string) => void; setState: React.Dispatch<React.SetStateAction<AppState>>; invalid?: boolean; onReorder: (delta: number) => void; }
+const SortableBox: React.FC<SortableBoxProps> = ({ box, onChange, onDelete, onDuplicate, toast, setState, invalid, onReorder }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: box.id, data: { boxType: 'text' } });
   const style: React.CSSProperties & { ['--w']?: string } = { '--w': String((box.weight||0)/5), transform: CSS.Transform.toString(transform), transition };
   return (
-    <div ref={setNodeRef} style={style} className={['prompt-box', isDragging && 'dragging', invalid && 'invalid'].filter(Boolean).join(' ')} data-weight={box.weight} aria-invalid={invalid || undefined}>
+    <div ref={setNodeRef} style={style} className={['prompt-box', isDragging && 'dragging', invalid && 'invalid'].filter(Boolean).join(' ')} data-weight={box.weight} aria-invalid={invalid || undefined} aria-describedby={DND_DESC_ID}>
       <div className="prompt-box-header">
         <span className={'badge category-'+box.category}>{box.category}</span>
-        <span className="drag-handle" {...attributes} {...listeners}>⠿</span>
+        <span className="drag-handle" aria-label="Reorder text box" onKeyDown={e => { if ((e.ctrlKey || e.altKey) && (e.key==='ArrowUp' || e.key==='ArrowDown')) { e.preventDefault(); onReorder(e.key==='ArrowUp' ? -1 : 1); toast('Box reordered'); } }} {...attributes} {...listeners}>⠿</span>
         <div className="weight-ctrl"><span className="material-symbols-rounded" style={{ fontSize:14, opacity:.6 }}>tune</span>
           <IconButton icon="remove" tip="Dec Weight" onClick={() => onChange(b => { b.weight = Math.max(0, +(b.weight - 0.1).toFixed(1)); })} />
           <input value={box.weight} onChange={e => { const v = Math.min(5, Math.max(0, parseFloat(e.target.value)||0)); onChange(b => { b.weight = parseFloat(v.toFixed(1)); }); }} />
@@ -122,26 +124,29 @@ const SortableBox: React.FC<SortableBoxProps> = ({ box, onChange, onDelete, onDu
   );
 };
 
-interface SortableImageBoxProps { box: AnyBox; onChange: (mut: (b: AnyBox) => void) => void; onDelete: () => void; onDuplicate: () => void; toast: (msg: string) => void; setState: React.Dispatch<React.SetStateAction<AppState>>; }
-const SortableImageBox: React.FC<SortableImageBoxProps> = ({ box, onChange, onDelete, onDuplicate, toast, setState }) => {
+interface SortableImageBoxProps { box: ImageBox; onChange: (mut: (b: ImageBox) => void) => void; onDelete: () => void; onDuplicate: () => void; toast: (msg: string) => void; setState: React.Dispatch<React.SetStateAction<AppState>>; onReorder: (delta: number) => void; }
+const SortableImageBox: React.FC<SortableImageBoxProps> = ({ box, onChange, onDelete, onDuplicate, toast, setState, onReorder }) => {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: box.id, data: { boxType: 'image' } });
   const style: React.CSSProperties = { transform: CSS.Transform.toString(transform), transition };
-  const onFile = async (file: File) => { const buf = await file.arrayBuffer(); const base64 = btoa(String.fromCharCode(...new Uint8Array(buf))); const dataUrl = `data:${file.type};base64,${base64}`; onChange(b => { if(b.type==='image'){ b.content = dataUrl; (b as ImageBox).filename = file.name; } }); toast(`Image "${file.name}" uploaded`); };
+  const onFile = async (file: File) => { const buf = await file.arrayBuffer(); const base64 = btoa(String.fromCharCode(...new Uint8Array(buf))); const dataUrl = `data:${file.type};base64,${base64}`; onChange(b => { b.content = dataUrl; b.filename = file.name; }); toast(`Image "${file.name}" uploaded`); };
   return (
-    <div ref={setNodeRef} style={style} className={['prompt-box', isDragging && 'dragging'].filter(Boolean).join(' ')}>
-      <div className="prompt-box-header"><span className="badge category-reference">image</span><span className="drag-handle" {...attributes} {...listeners}>⠿</span></div>
+    <div ref={setNodeRef} style={style} className={['prompt-box', isDragging && 'dragging'].filter(Boolean).join(' ')} aria-describedby={DND_DESC_ID}>
+      <div className="prompt-box-header">
+        <span className="badge category-reference">image</span>
+        <span className="drag-handle" aria-label="Reorder image box" onKeyDown={e => { if ((e.ctrlKey || e.altKey) && (e.key==='ArrowUp' || e.key==='ArrowDown')) { e.preventDefault(); onReorder(e.key==='ArrowUp' ? -1 : 1); toast('Image reordered'); } }} {...attributes} {...listeners}>⠿</span>
+      </div>
       <div className="image-ref">
-        <label className="thumb">{box.content ? <img src={box.content} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <input type="file" onChange={e => { const f=e.target.files?.[0]; if(f) onFile(f);} } />}</label>
+        <label className="thumb">{box.content ? <img src={box.content} style={{ width:'100%', height:'100%', objectFit:'cover' }} /> : <input type="file" aria-label="Upload image" onChange={e => { const f=e.target.files?.[0]; if(f) onFile(f);} } />}</label>
         <div style={{ flex:1, display:'flex', flexDirection:'column', gap:'.5rem' }}>
-          <input className="inline-input" placeholder="Description" value={box.type==='image' ? (box as ImageBox).description||'' : ''} onFocus={() => setState(s => ({ ...s, lastFocusedBoxId: box.id }))} onChange={e => onChange(b => { if(b.type==='image'){ (b as ImageBox).description = e.target.value; } })} />
-          {box.type==='image' && (box as ImageBox).filename && <div className="notice">{(box as ImageBox).filename}</div>}
+          <input className="inline-input" placeholder="Description" value={box.description||''} onFocus={() => setState(s => ({ ...s, lastFocusedBoxId: box.id }))} onChange={e => onChange(b => { b.description = e.target.value; })} />
+          {box.filename && <div className="notice">{box.filename}</div>}
           <div className="box-actions">
             <IconButton icon="content_copy" tip="Copy Data URL" onClick={() => { navigator.clipboard.writeText(box.content); toast('Image data copied'); }} />
-            <IconButton icon="backspace" tip="Clear" onClick={() => { onChange(b => { if(b.type==='image'){ b.content=''; (b as ImageBox).filename=''; } }); toast('Image cleared'); }} />
+            <IconButton icon="backspace" tip="Clear" onClick={() => { onChange(b => { b.content=''; b.filename=''; }); toast('Image cleared'); }} />
             <IconButton icon="control_point_duplicate" tip="Duplicate" onClick={onDuplicate} />
             <IconButton icon="delete" className="danger" tip="Delete" onClick={onDelete} />
           </div>
-          <TagEditor tags={box.type==='image' ? (box as ImageBox).tags||[] : []} onAdd={t => onChange(b => { if(b.type==='image'){ const arr = (b as ImageBox).tags || ((b as ImageBox).tags=[]); if(!arr.includes(t)) (b as ImageBox).tags=[...arr,t]; } })} onRemove={t => onChange(b => { if(b.type==='image'){ (b as ImageBox).tags = ((b as ImageBox).tags||[]).filter(x=>x!==t); } })} />
+          <TagEditor tags={box.tags||[]} onAdd={t => onChange(b => { const arr = b.tags || (b.tags=[]); if(!arr.includes(t)) b.tags=[...arr,t]; })} onRemove={t => onChange(b => { b.tags = (b.tags||[]).filter(x=>x!==t); })} />
         </div>
       </div>
     </div>
@@ -167,6 +172,7 @@ export const PromptEditor: React.FC<{ state: AppState; setState: React.Dispatch<
   const deleteBox = (id: string) => { updateProject(p => { p.boxes = p.boxes.filter(b => b.id !== id); }); toast('Box deleted'); };
   const duplicateBox = (id: string) => { updateProject(p => { const b = p.boxes.find(b => b.id === id); if (!b) return; const clone: AnyBox = { ...b, id: crypto.randomUUID(), created: Date.now(), modified: Date.now(), position: Date.now() }; p.boxes.push(clone); }); toast('Box duplicated'); };
   const clearAll = () => { updateProject(p => { p.boxes.forEach(b => { if (b.type === 'text') (b as TextBox).content=''; if (b.type === 'image') b.content=''; }); }); toast('All boxes cleared'); };
+  const moveBox = (id: string, delta: number) => { updateProject(p => { const target = p.boxes.find(b => b.id === id); if(!target) return; const type = target.type; const group = p.boxes.filter(b => b.type === type); const ids = group.map(b => b.id); const idx = ids.indexOf(id); const newIdx = idx + delta; if(newIdx<0 || newIdx>=group.length) return; const reordered = arrayMove(group, idx, newIdx); const others = p.boxes.filter(b => b.type !== type); p.boxes = type === 'text' ? [...reordered, ...others] : [...others, ...reordered]; }); };
   const textBoxes: TextBox[] = project.boxes.filter(isTextBox);
   const imageBoxes: ImageBox[] = project.boxes.filter(isImageBox);
   const tagFreq = useMemo(() => { const f: Record<string, number> = {}; project.boxes.forEach(b => { if ('tags' in b && Array.isArray(b.tags)) { b.tags.forEach(t => { f[t] = (f[t] || 0) + 1; }); } }); return f; }, [project]);
@@ -193,11 +199,13 @@ export const PromptEditor: React.FC<{ state: AppState; setState: React.Dispatch<
   const undo = () => { setState(s => { const past = s.history.past; if (!past.length) { toast('Nothing to undo'); return { ...s }; } const last = past.pop()!; const snapshot = restoreSnapshot(last); s.history.future.push(compressProjects(s.projects, s.activeProjectId)); return { ...s, projects: snapshot, activeProjectId: last.active }; }); };
   const redo = () => { setState(s => { const fut = s.history.future; if (!fut.length) { toast('Nothing to redo'); return { ...s }; } const next = fut.pop()!; s.history.past.push(compressProjects(s.projects, s.activeProjectId)); const snapshot = restoreSnapshot(next); return { ...s, projects: snapshot, activeProjectId: next.active }; }); };
   const searchRef = React.useRef<HTMLInputElement|null>(null); const projectTagInputRef = React.useRef<HTMLInputElement|null>(null);
-  useEffect(() => { const handler = (e: KeyboardEvent) => { const mod = e.metaKey || e.ctrlKey; if (!mod) return; if (e.key.toLowerCase() === 's') { e.preventDefault(); saveJson(); } else if (e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); } else if ((e.key.toLowerCase() === 'y') || (e.key.toLowerCase()==='z' && e.shiftKey)) { e.preventDefault(); redo(); } else if (e.key.toLowerCase() === 'f') { e.preventDefault(); searchRef.current?.focus(); } else if (e.key.toLowerCase() === 't' && e.shiftKey) { e.preventDefault(); projectTagInputRef.current?.focus(); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, [undo, redo]);
+  useEffect(() => { const handler = (e: KeyboardEvent) => { const mod = e.metaKey || e.ctrlKey; if (!mod) return; if (e.key.toLowerCase() === 's') { e.preventDefault(); saveJson(); } else if (e.key.toLowerCase() === 'z' && !e.shiftKey) { e.preventDefault(); undo(); } else if ((e.key.toLowerCase() === 'y') || (e.key.toLowerCase()==='z' && e.shiftKey)) { e.preventDefault(); redo(); } else if (e.key.toLowerCase() === 'f') { e.preventDefault(); searchRef.current?.focus(); } else if (e.key.toLowerCase() === 't' && e.shiftKey) { e.preventDefault(); projectTagInputRef.current?.focus(); } }; window.addEventListener('keydown', handler); return () => window.removeEventListener('keydown', handler); }, []);
   const metrics = useMemo(() => { const words = textBoxes.reduce((acc,b) => acc + b.content.trim().split(/\s+/).filter(Boolean).length, 0); const chars = textBoxes.reduce((a,b)=>a + b.content.length,0); const avgWeight = textBoxes.length ? (textBoxes.reduce((a,b)=>a+b.weight,0)/textBoxes.length) : 0; const tagCounts = Object.entries(tagFreq).sort((a,b)=>b[1]-a[1]); const estTokens = Math.round(chars/4); return { words, chars, estTokens, avgWeight, tagCounts }; }, [textBoxes, tagFreq]);
   return (
     <div className="app-shell">
-      <a href="#mainContent" className="skip-link">Skip to content</a>
+      <div id={DND_DESC_ID} style={{ position:'absolute', width:1, height:1, padding:0, margin:-1, overflow:'hidden', clip:'rect(0 0 0 0)', whiteSpace:'nowrap', border:0 }}>
+        Reorder instructions: Focus a drag handle then press Control or Alt plus Arrow Up or Arrow Down to move within its group. Text and image boxes reorder independently.
+      </div>
       <div className="toolbar" role="banner">
         <h1>PromptMania</h1>
         <input aria-label="Project name" className="name" value={project.name} onChange={e => updateProject(p => { p.name = e.target.value; })} />
@@ -283,11 +291,11 @@ export const PromptEditor: React.FC<{ state: AppState; setState: React.Dispatch<
               </div>
               <DndContext sensors={sensors} onDragStart={e => setActiveId(String(e.active.id))} onDragEnd={onDragEnd}>
                 <SortableContext items={filteredTextBoxes.map(b => b.id)} strategy={rectSortingStrategy}>
-                  <div className="boxes-grid">{filteredTextBoxes.map(b => <SortableBox key={b.id} box={b} setState={setState} onChange={mut => setTextBox(b.id, mut)} onDelete={() => deleteBox(b.id)} onDuplicate={() => duplicateBox(b.id)} toast={toast} invalid={b.category==='subject' && !b.content.trim()} />)}</div>
+                  <div className="boxes-grid">{filteredTextBoxes.map(b => <SortableBox key={b.id} box={b} setState={setState} onChange={mut => setTextBox(b.id, mut)} onDelete={() => deleteBox(b.id)} onDuplicate={() => duplicateBox(b.id)} toast={toast} invalid={b.category==='subject' && !b.content.trim()} onReorder={delta => moveBox(b.id, delta)} />)}</div>
                 </SortableContext>
                 <h2>Images</h2>
                 <SortableContext items={filteredImageBoxes.map(b => b.id)} strategy={rectSortingStrategy}>
-                  <div className="boxes-grid">{filteredImageBoxes.map(b => <SortableImageBox key={b.id} box={b} setState={setState} onChange={mut => setBox(b.id, mut)} onDelete={() => deleteBox(b.id)} onDuplicate={() => duplicateBox(b.id)} toast={toast} />)}</div>
+                  <div className="boxes-grid">{filteredImageBoxes.map(b => <SortableImageBox key={b.id} box={b} setState={setState} onChange={mut => setBox(b.id, mut as any)} onDelete={() => deleteBox(b.id)} onDuplicate={() => duplicateBox(b.id)} toast={toast} onReorder={delta => moveBox(b.id, delta)} />)}</div>
                 </SortableContext>
                 <DragOverlay>{activeId && <div className="prompt-box dragging">Dragging...</div>}</DragOverlay>
               </DndContext>
