@@ -28,6 +28,9 @@ export interface ImageBox extends BaseBox {
 
 export type AnyBox = TextBox | ImageBox;
 
+export function isTextBox(b: AnyBox): b is TextBox { return b.type === 'text'; }
+export function isImageBox(b: AnyBox): b is ImageBox { return b.type === 'image'; }
+
 export interface Project {
   id: string;
   name: string;
@@ -39,3 +42,6 @@ export interface Project {
 }
 
 export type PlatformPreset = 'midjourney' | 'stable-diffusion' | 'dalle' | 'plain';
+
+export const BOX_CATEGORIES: BoxCategory[] = ['default','subject','style','background','composition','angle','reference'];
+export function isBoxCategory(v: any): v is BoxCategory { return BOX_CATEGORIES.includes(v); }
