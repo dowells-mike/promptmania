@@ -1,4 +1,4 @@
-import { AnyBox, Project, TextBox, ImageBox, BoxCategory, PlatformPreset } from './types';
+import { Project, TextBox, ImageBox, BoxCategory, PlatformPreset } from './types';
 import LZString from 'lz-string';
 
 export interface AppState {
@@ -128,27 +128,31 @@ export function snapshotProjects(projects: Project[]): Project[] {
   return projects.map(p => ({ ...p, boxes: p.boxes.map(b => ({ ...b })) }));
 }
 
+export function compressProjects(projects: Project[], active: string | null): { data: string; active: string | null; size: number } {
+  const raw = JSON.stringify(projects);
+  const compressed = LZString.compressToUTF16(raw);
+  return { data: compressed, active, size: compressed.length };
+}
+
+export function decompressProjects(data: string): Project[] {
+  const decompressed = LZString.decompressFromUTF16(data) || '[]';
+  const parsed = JSON.parse(decompressed) as Project[];
+  return parsed.map(p => ({ ...p, boxes: p.boxes.map(b => ({ ...b })) }));
+}
+
 export function pushHistory(state: AppState) {
   try {
-    const raw = JSON.stringify(state.projects);
-    const compressed = LZString.compressToUTF16(raw);
-    const size = compressed.length;
-    state.history.past.push({ data: compressed, active: state.activeProjectId, size });
-    // memory limit ~2MB of compressed UTF16 length
+    state.history.past.push(compressProjects(state.projects, state.activeProjectId));
     let total = state.history.past.reduce((a, e) => a + e.size, 0);
     while (total > 2_000_000 && state.history.past.length > 1) {
       const removed = state.history.past.shift();
       total -= removed ? removed.size : 0;
     }
-    // cap entries count as secondary guard
     if (state.history.past.length > 300) state.history.past.shift();
     state.history.future = [];
   } catch (e) { console.warn('pushHistory failed', e); }
 }
 
 export function restoreSnapshot(entry: { data: string }) : Project[] {
-  const decompressed = LZString.decompressFromUTF16(entry.data) || '[]';
-  const parsed = JSON.parse(decompressed) as Project[];
-  // shallow clone boxes to avoid mutation side-effects
-  return parsed.map(p => ({ ...p, boxes: p.boxes.map(b => ({ ...b })) }));
+  return decompressProjects(entry.data);
 }
