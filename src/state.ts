@@ -142,12 +142,64 @@ export function persistUserPrefs(prefs: UserPrefs) {
   localStorage.setItem(PREFS_KEY, JSON.stringify(prefs));
 }
 
+export function htmlToMarkdownLite(html: string): string {
+  if (!html) return '';
+  const container = (typeof document !== 'undefined') ? document.createElement('div') : null;
+  if (!container) {
+    // Fallback strip tags
+    return html.replace(/<[^>]+>/g, '').trim();
+  }
+  container.innerHTML = html;
+  const walk = (node: Node): string => {
+    if (node.nodeType === Node.TEXT_NODE) return (node.textContent || '').replace(/\s+/g, ' ');
+    if (node.nodeType !== Node.ELEMENT_NODE) return '';
+    const el = node as HTMLElement;
+    const tag = el.tagName.toLowerCase();
+    let inner = '';
+    for (const child of Array.from(el.childNodes)) inner += walk(child);
+    inner = inner.trim();
+    switch (tag) {
+      case 'strong':
+      case 'b': return inner ? `**${inner}**` : '';
+      case 'em':
+      case 'i': return inner ? `*${inner}*` : '';
+      case 'u': return inner ? `_${inner}_` : '';
+      case 'code': {
+        const escaped = inner.replace(/`/g, '\u200b`');
+        return '`' + escaped + '`';
+      }
+      case 'a': {
+        const href = el.getAttribute('href');
+        if (href) return `[${inner || href}](${href})`;
+        return inner;
+      }
+      case 'br': return '\n';
+      case 'p':
+      case 'div':
+      case 'h1':
+      case 'h2':
+      case 'h3':
+      case 'h4':
+      case 'h5':
+      case 'h6': return inner ? inner + ' ' : '';
+      default: return inner;
+    }
+  };
+  let out = '';
+  for (const child of Array.from(container.childNodes)) out += walk(child);
+  // Collapse whitespace, keep simple newlines
+  out = out.replace(/ +/g, ' ').replace(/\s+\n/g, '\n').replace(/\n+/g, ' ').trim();
+  return out;
+}
+
 export function mergePrompt(project: Project, preset: PlatformPreset = 'plain'): string {
   const textBoxes = project.boxes.filter(b => b.type === 'text') as TextBox[];
   const parts = textBoxes
-    .filter(b => b.content.trim().length)
+    .filter(b => (b.content || b.richText || '').trim().length)
     .map(b => {
-      const base = b.content.trim();
+      // Use normalized markdown if plain preset and richText exists
+      const baseRaw = preset === 'plain' && b.richText ? htmlToMarkdownLite(b.richText) : b.content;
+      const base = baseRaw.trim();
       if (b.weight && b.weight > 0) {
         if (preset === 'midjourney' || preset === 'plain') return `${base}::${b.weight.toFixed(1)}`;
         if (preset === 'stable-diffusion') return `(${base}:${b.weight.toFixed(1)})`;
