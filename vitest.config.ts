@@ -10,7 +10,13 @@ export default defineConfig({
     coverage: {
       reporter: ['text','lcov'],
       include: ['src/**/*.{ts,tsx}'],
-      exclude: ['src/main.tsx']
+      exclude: ['src/main.tsx'],
+      thresholds: {
+        lines: 70,
+        statements: 70,
+        functions: 60,
+        branches: 50
+      }
     }
   }
 });

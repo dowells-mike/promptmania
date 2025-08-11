@@ -24,3 +24,11 @@ jobs:
         run: npm run build
       - name: Tests
         run: npm test --if-present
+      - name: Coverage
+        run: npm run test:coverage
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: coverage/lcov.info
